@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cargar gasto</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="expense-panel" aria-labelledby="title">
+        <div class="brand-row"><span class="mark">M</span><span>Morettis</span></div>
+        <h1 id="title">Cargar gasto</h1>
+        <p class="helper-text">Carga directa en Cash-25 Morettis (2). El importe reemplaza la celda seleccionada.</p>
+        <form id="expense-form" class="form">
+          <label id="access-code-field" hidden><span>Codigo de acceso</span><input id="codigo_acceso" name="codigo_acceso" autocomplete="off"></label>
+          <label><span>Importe</span><input id="importe" name="importe" inputmode="decimal" autocomplete="off" placeholder="45000" required></label>
+          <label><span>Mes de la proyeccion</span><select id="mes_columna" name="mes_columna" required></select></label>
+          <label><span>Categoria</span><select id="categoria" name="categoria" required></select></label>
+          <label><span>Subcategoria</span><select id="subcategoria" name="subcategoria" required></select></label>
+          <label><span>Gasto</span><select id="concepto" name="concepto" required></select></label>
+          <button id="submit-button" type="submit">Enviar gasto</button>
+        </form>
+        <div id="preview" class="preview" aria-live="polite"></div>
+        <div id="status" class="status" role="status" aria-live="polite"></div>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
