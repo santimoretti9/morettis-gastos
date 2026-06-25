@@ -1,0 +1,13 @@
+{
+  "name": "morettis-sheets-system",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check:sheets": "node scripts/check-sheets.mjs",
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
