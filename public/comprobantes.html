@@ -14,10 +14,9 @@
           <p>Respaldo</p>
           <h1 id="title">Comprobantes</h1>
         </div>
-        <p class="helper-text">Carga una foto o PDF cuando haga falta dejar respaldo de un gasto.</p>
+        <p class="helper-text">Carga una foto o PDF cuando haga falta dejar respaldo de un gasto. La persona se identifica con su codigo.</p>
         <form id="receipt-form" class="form">
           <label id="receipt-access-code-field" hidden><span>Codigo de acceso</span><input id="codigo_acceso" name="codigo_acceso" autocomplete="off"></label>
-          <label><span>Persona</span><input id="persona" name="persona" autocomplete="name" placeholder="Quien lo carga" required></label>
           <label><span>Importe</span><input id="importe" name="importe" inputmode="decimal" autocomplete="off" placeholder="45000"></label>
           <label><span>Descripcion</span><textarea id="descripcion" name="descripcion" placeholder="Ej: factura de telefono, marzo"></textarea></label>
           <label><span>Archivo</span><input id="archivo" name="archivo" type="file" accept="image/*,.pdf" required></label>
