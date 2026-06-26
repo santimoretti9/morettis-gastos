@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cargar comprobante</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="expense-panel" aria-labelledby="title">
+        <div class="brand-row"><span class="mark">M</span><span>Morettis</span></div>
+        <div class="page-heading">
+          <p>Respaldo</p>
+          <h1 id="title">Comprobantes</h1>
+        </div>
+        <p class="helper-text">Carga una foto o PDF cuando haga falta dejar respaldo de un gasto.</p>
+        <form id="receipt-form" class="form">
+          <label id="receipt-access-code-field" hidden><span>Codigo de acceso</span><input id="codigo_acceso" name="codigo_acceso" autocomplete="off"></label>
+          <label><span>Persona</span><input id="persona" name="persona" autocomplete="name" placeholder="Quien lo carga" required></label>
+          <label><span>Importe</span><input id="importe" name="importe" inputmode="decimal" autocomplete="off" placeholder="45000"></label>
+          <label><span>Descripcion</span><textarea id="descripcion" name="descripcion" placeholder="Ej: factura de telefono, marzo"></textarea></label>
+          <label><span>Archivo</span><input id="archivo" name="archivo" type="file" accept="image/*,.pdf" required></label>
+          <button id="receipt-submit-button" type="submit">Guardar comprobante</button>
+        </form>
+        <div id="receipt-preview" class="preview" aria-live="polite">El archivo queda registrado en la hoja Comprobantes.</div>
+        <div id="receipt-status" class="status" role="status" aria-live="polite"></div>
+      </section>
+      <nav class="bottom-nav" aria-label="Navegacion principal">
+        <a href="/">Cargar</a>
+        <a href="/historial.html">Historial</a>
+        <a class="active" href="/comprobantes.html">Comprobantes</a>
+      </nav>
+    </main>
+    <script src="/comprobantes.js"></script>
+  </body>
+</html>
