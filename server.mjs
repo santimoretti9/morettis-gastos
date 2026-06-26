@@ -85,6 +85,7 @@ const credentialsPath = env.GOOGLE_APPLICATION_CREDENTIALS;
 const serviceAccountJson = env.GOOGLE_SERVICE_ACCOUNT_JSON;
 const spreadsheetId = env.GOOGLE_SHEET_ID;
 const accessCode = env.APP_ACCESS_CODE || '';
+const accessUsers = parseAccessUsers(env.APP_ACCESS_USERS || '');
 
 if ((!credentialsPath && !serviceAccountJson) || !spreadsheetId) { console.error('Faltan credenciales de Google o GOOGLE_SHEET_ID'); throw new Error('Configuracion incompleta'); }
 
@@ -97,7 +98,7 @@ createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/aprobar') return sendJson(res, 200, await approveExpense(await readJson(req)));
     if (req.method === 'POST' && url.pathname === '/api/gastos') return sendJson(res, 201, await createExpense(await readJson(req)));
     if (req.method === 'POST' && url.pathname === '/api/comprobantes') return sendJson(res, 201, await createReceipt(await readJson(req))); 
-    if (req.method === 'GET' && url.pathname === '/api/config') return sendJson(res, 200, { accessCodeRequired: Boolean(accessCode) });
+    if (req.method === 'GET' && url.pathname === '/api/config') return sendJson(res, 200, { accessCodeRequired: Boolean(accessCode || accessUsers.length), userCodesEnabled: Boolean(accessUsers.length) });
     if (req.method === 'GET') return serveStatic(res, url.pathname);
     sendJson(res, 404, { error: 'No encontrado' });
   } catch (error) {
@@ -107,7 +108,7 @@ createServer(async (req, res) => {
 }).listen(PORT, () => console.log('Mini web lista en http://localhost:' + PORT));
 
 async function createExpense(body) {
-  validateAccessCode(body.codigo_acceso);
+  const accessUser = validateAccessCode(body.codigo_acceso);
   const amount = parseAmount(body.importe);
   const month = MONTHS.find((item) => item.column === String(body.mes_columna || '').trim());
   const category = String(body.categoria || '').trim();
@@ -134,7 +135,7 @@ async function createExpense(body) {
   await appendValues("'" + SHEET_NAME + "'!A1:R", [[
     id,
     now,
-    'Carga web',
+    accessUser,
     '',
     message,
     '',
@@ -168,7 +169,16 @@ async function createExpense(body) {
 }
 
 function validationError(message) { const error = new Error(message); error.statusCode = 400; return error; }
-function validateAccessCode(code) { if (accessCode && String(code || '') !== accessCode) throw validationError('Codigo de acceso incorrecto'); }
+function validateAccessCode(code) {
+  const normalizedCode = String(code || '').trim();
+  if (accessUsers.length) {
+    const user = accessUsers.find((item) => item.code === normalizedCode);
+    if (!user) throw validationError('Codigo de acceso incorrecto');
+    return user.name;
+  }
+  if (accessCode && normalizedCode !== accessCode) throw validationError('Codigo de acceso incorrecto');
+  return 'Carga web';
+}
 
 async function listHistory() {
   const rows = await getValues("'" + SHEET_NAME + "'!A2:R");
@@ -180,8 +190,8 @@ async function listHistory() {
 }
 
 async function createReceipt(body) {
-  validateAccessCode(body.codigo_acceso);
-  const person = String(body.persona || '').trim();
+  const accessUser = validateAccessCode(body.codigo_acceso);
+  const person = String(body.persona || accessUser).trim();
   const description = String(body.descripcion || '').trim();
   const fileName = String(body.archivo_nombre || '').trim();
   const fileType = String(body.archivo_tipo || '').trim();
@@ -360,6 +370,21 @@ async function readEnv(filePath) {
   }
 }
 function parseAmount(value) { const raw = String(value || '').trim().replace(/[$\s]/g, ''); const normalized = raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw; const parsed = Number(normalized); return Number.isFinite(parsed) ? parsed : 0; }
+function parseAccessUsers(value) {
+  return String(value || '')
+    .split(/[;\n,]+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const separator = part.includes('|') ? '|' : ':';
+      const index = part.indexOf(separator);
+      if (index === -1) return null;
+      const name = part.slice(0, index).trim();
+      const code = part.slice(index + 1).trim();
+      return name && code ? { name, code } : null;
+    })
+    .filter(Boolean);
+}
 function chunkText(value, size) { const chunks = []; for (let index = 0; index < value.length; index += size) chunks.push(value.slice(index, index + size)); return chunks; }
 function sendJson(res, statusCode, payload) { res.writeHead(statusCode, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(payload)); }
 function base64url(value) { return Buffer.from(value).toString('base64url'); }
