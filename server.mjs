@@ -8,6 +8,8 @@ const PORT = Number((typeof process === 'undefined' ? undefined : process.env.PO
 const PUBLIC_DIR = join(ROOT_DIR, 'public');
 const SHEET_NAME = 'Mensajes Gastos';
 const MAIN_SHEET_NAME = 'Cash-25 Morettis (2)';
+const RECEIPTS_SHEET_NAME = 'Comprobantes';
+const RECEIPT_CHUNK_SIZE = 45000;
 
 const MONTHS = [
   { label: 'Enero', month: 'ENE', column: 'I' },
@@ -91,8 +93,10 @@ createServer(async (req, res) => {
     const url = new URL(req.url, 'http://' + req.headers.host);
     if (req.method === 'GET' && url.pathname === '/api/catalogo') return sendJson(res, 200, { months: MONTHS, concepts: CONCEPTS });
     if (req.method === 'GET' && url.pathname === '/api/pendientes') return sendJson(res, 200, await listPendingExpenses());
+    if (req.method === 'GET' && url.pathname === '/api/historial') return sendJson(res, 200, await listHistory());
     if (req.method === 'POST' && url.pathname === '/api/aprobar') return sendJson(res, 200, await approveExpense(await readJson(req)));
     if (req.method === 'POST' && url.pathname === '/api/gastos') return sendJson(res, 201, await createExpense(await readJson(req)));
+    if (req.method === 'POST' && url.pathname === '/api/comprobantes') return sendJson(res, 201, await createReceipt(await readJson(req))); 
     if (req.method === 'GET' && url.pathname === '/api/config') return sendJson(res, 200, { accessCodeRequired: Boolean(accessCode) });
     if (req.method === 'GET') return serveStatic(res, url.pathname);
     sendJson(res, 404, { error: 'No encontrado' });
@@ -166,6 +170,49 @@ async function createExpense(body) {
 function validationError(message) { const error = new Error(message); error.statusCode = 400; return error; }
 function validateAccessCode(code) { if (accessCode && String(code || '') !== accessCode) throw validationError('Codigo de acceso incorrecto'); }
 
+async function listHistory() {
+  const rows = await getValues("'" + SHEET_NAME + "'!A2:R");
+  return rows
+    .map((row, index) => expenseFromRow(row, index + 2))
+    .filter((expense) => expense.id)
+    .reverse()
+    .slice(0, 50);
+}
+
+async function createReceipt(body) {
+  validateAccessCode(body.codigo_acceso);
+  const person = String(body.persona || '').trim();
+  const description = String(body.descripcion || '').trim();
+  const fileName = String(body.archivo_nombre || '').trim();
+  const fileType = String(body.archivo_tipo || '').trim();
+  const fileSize = Number(body.archivo_tamano || 0);
+  const fileBase64 = String(body.archivo_base64 || '').trim();
+  const amount = parseAmount(body.importe);
+
+  if (!person) throw validationError('Persona requerida');
+  if (!fileName || !fileBase64) throw validationError('Falta el archivo del comprobante');
+  if (fileSize > 1500000 || fileBase64.length > 2100000) throw validationError('El archivo es muy grande');
+
+  await ensureReceiptsSheet();
+  const id = 'COMP-' + Date.now();
+  const now = new Date().toISOString();
+  const chunks = chunkText(fileBase64, RECEIPT_CHUNK_SIZE);
+  await appendValues("'" + RECEIPTS_SHEET_NAME + "'!A1:Z", [[
+    id,
+    now,
+    person,
+    amount || '',
+    description,
+    fileName,
+    fileType,
+    fileSize || '',
+    chunks.length,
+    ...chunks,
+  ]]);
+
+  return { id, estado: 'guardado', archivo: fileName, partes: chunks.length };
+}
+
 async function listPendingExpenses() {
   const rows = await getValues("'" + SHEET_NAME + "'!A2:R");
   return rows
@@ -219,7 +266,29 @@ function expenseFromRow(row, rowNumber) {
     columnaDestino: row[13] || '',
     confianza: row[14] || '',
     estado: row[15] || '',
+    observaciones: row[16] || '',
+    fechaRevision: row[17] || '',
   };
+}
+
+async function ensureReceiptsSheet() {
+  const header = ['id', 'fecha', 'persona', 'importe', 'descripcion', 'archivo_nombre', 'archivo_tipo', 'archivo_tamano', 'partes', 'archivo_base64_partes'];
+  try {
+    const rows = await getValues("'" + RECEIPTS_SHEET_NAME + "'!A1:J1");
+    if (rows.length) return;
+  } catch (error) {
+    await batchUpdate({ requests: [{ addSheet: { properties: { title: RECEIPTS_SHEET_NAME } } }] });
+  }
+  await updateValues("'" + RECEIPTS_SHEET_NAME + "'!A1:J1", [header]);
+}
+
+async function batchUpdate(payload) {
+  const accessToken = await getAccessToken();
+  const url = new URL('https://sheets.googleapis.com/v4/spreadsheets/' + spreadsheetId + ':batchUpdate');
+  const response = await fetch(url, { method: 'POST', headers: { authorization: 'Bearer ' + accessToken, 'content-type': 'application/json' }, body: JSON.stringify(payload) });
+  const data = await response.json();
+  if (!response.ok) throw new Error(JSON.stringify(data));
+  return data;
 }
 
 async function appendValues(range, values) {
@@ -281,7 +350,16 @@ async function serveStatic(res, pathname) {
 
 function contentType(filePath) { return { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8' }[extname(filePath)] || 'application/octet-stream'; }
 async function readJson(req) { let body = ''; for await (const chunk of req) body += chunk; return JSON.parse(body || '{}'); }
-async function readEnv(filePath) { const content = await readFile(filePath, 'utf8'); return Object.fromEntries(content.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith('#')).map((line) => { const index = line.indexOf('='); return [line.slice(0, index), line.slice(index + 1)]; })); }
+async function readEnv(filePath) {
+  try {
+    const content = await readFile(filePath, 'utf8');
+    return Object.fromEntries(content.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith('#')).map((line) => { const index = line.indexOf('='); return [line.slice(0, index), line.slice(index + 1)]; }));
+  } catch (error) {
+    if (error?.code === 'ENOENT') return {};
+    throw error;
+  }
+}
 function parseAmount(value) { const raw = String(value || '').trim().replace(/[$\s]/g, ''); const normalized = raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw; const parsed = Number(normalized); return Number.isFinite(parsed) ? parsed : 0; }
+function chunkText(value, size) { const chunks = []; for (let index = 0; index < value.length; index += size) chunks.push(value.slice(index, index + size)); return chunks; }
 function sendJson(res, statusCode, payload) { res.writeHead(statusCode, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(payload)); }
 function base64url(value) { return Buffer.from(value).toString('base64url'); }
