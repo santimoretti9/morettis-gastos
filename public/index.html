@@ -10,8 +10,11 @@
     <main class="app-shell">
       <section class="expense-panel" aria-labelledby="title">
         <div class="brand-row"><span class="mark">M</span><span>Morettis</span></div>
-        <h1 id="title">Cargar gasto</h1>
-        <p class="helper-text">Carga directa en Cash-25 Morettis (2). El importe reemplaza la celda seleccionada.</p>
+        <div class="page-heading">
+          <p>Carga directa</p>
+          <h1 id="title">Cargar gasto</h1>
+        </div>
+        <p class="helper-text">Selecciona mes, categoria y gasto. El importe reemplaza la celda correspondiente en Cash-25 Morettis (2).</p>
         <form id="expense-form" class="form">
           <label id="access-code-field" hidden><span>Codigo de acceso</span><input id="codigo_acceso" name="codigo_acceso" autocomplete="off"></label>
           <label><span>Importe</span><input id="importe" name="importe" inputmode="decimal" autocomplete="off" placeholder="45000" required></label>
@@ -21,9 +24,14 @@
           <label><span>Gasto</span><select id="concepto" name="concepto" required></select></label>
           <button id="submit-button" type="submit">Enviar gasto</button>
         </form>
-        <div id="preview" class="preview" aria-live="polite"></div>
+        <div id="preview" class="preview" aria-live="polite">Selecciona los datos para ver el destino antes de enviar.</div>
         <div id="status" class="status" role="status" aria-live="polite"></div>
       </section>
+      <nav class="bottom-nav" aria-label="Navegacion principal">
+        <a class="active" href="/">Cargar</a>
+        <a href="/historial.html">Historial</a>
+        <a href="/comprobantes.html">Comprobantes</a>
+      </nav>
     </main>
     <script src="/app.js"></script>
   </body>
