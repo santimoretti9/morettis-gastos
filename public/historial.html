@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Historial de cargas</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="app-shell list-shell">
+      <section class="expense-panel wide-panel" aria-labelledby="title">
+        <div class="brand-row"><span class="mark">M</span><span>Morettis</span></div>
+        <div class="page-heading">
+          <p>Control</p>
+          <h1 id="title">Historial</h1>
+        </div>
+        <p class="helper-text">Ultimas cargas hechas desde la pagina, con destino, importe y observaciones.</p>
+        <div id="history-status" class="status" role="status">Cargando historial...</div>
+        <div id="history-list" class="history-list"></div>
+      </section>
+      <nav class="bottom-nav" aria-label="Navegacion principal">
+        <a href="/">Cargar</a>
+        <a class="active" href="/historial.html">Historial</a>
+        <a href="/comprobantes.html">Comprobantes</a>
+      </nav>
+    </main>
+    <script src="/historial.js"></script>
+  </body>
+</html>
