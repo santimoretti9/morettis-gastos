@@ -37,7 +37,7 @@ function fillConcepts() { const category = categorySelect.value; const subcatego
 function updatePreview() {
   const month = catalog.months.find((item) => item.column === monthSelect.value);
   const concept = catalog.concepts.find((item) => item.concept === conceptSelect.value);
-  if (!month || !concept) { previewEl.textContent = ''; return; }
+  if (!month || !concept) { previewEl.textContent = 'Selecciona los datos para ver el destino antes de enviar.'; return; }
   const subcategory = concept.subcategory || concept.category;
   previewEl.textContent = 'Destino sugerido: ' + concept.category + ' > ' + subcategory + ' > ' + concept.concept + ', fila ' + concept.row + ', ' + month.label + '.';
 }
