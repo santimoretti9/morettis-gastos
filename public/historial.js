@@ -25,7 +25,7 @@ function renderItem(item) {
   return [
     '<article class="history-item">',
     '<div class="history-top"><div><span class="pill">' + escapeHtml(item.estado || 'sin estado') + '</span><h2>' + escapeHtml(item.concepto || 'Movimiento') + '</h2><p>' + escapeHtml(item.categoria || '') + '</p></div><strong>' + formatAmount(item.importe) + '</strong></div>',
-    '<dl><div><dt>Fecha</dt><dd>' + escapeHtml(date) + '</dd></div><div><dt>Mes</dt><dd>' + escapeHtml(item.mesDestino || '-') + '</dd></div><div><dt>Destino</dt><dd>' + escapeHtml(item.columnaDestino || '-') + escapeHtml(item.filaDestino || '') + '</dd></div></dl>',
+    '<dl><div><dt>Persona</dt><dd>' + escapeHtml(item.persona || '-') + '</dd></div><div><dt>Fecha</dt><dd>' + escapeHtml(date) + '</dd></div><div><dt>Mes</dt><dd>' + escapeHtml(item.mesDestino || '-') + '</dd></div><div><dt>Destino</dt><dd>' + escapeHtml(item.columnaDestino || '-') + escapeHtml(item.filaDestino || '') + '</dd></div></dl>',
     '<p class="muted">' + escapeHtml(item.observaciones || item.mensaje || '') + '</p>',
     '</article>'
   ].join('');
