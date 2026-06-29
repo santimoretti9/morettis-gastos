@@ -14,11 +14,24 @@
           <p>Control</p>
           <h1 id="title">Historial</h1>
         </div>
-        <p class="helper-text">Ultimas cargas hechas desde la pagina, con destino, importe y observaciones.</p>
-        <div id="history-status" class="status" role="status">Cargando historial...</div>
-        <div id="history-list" class="history-list"></div>
+        <p class="helper-text">Consulta las cargas que fueron al Excel y los comprobantes subidos desde la pagina.</p>
+
+        <div class="history-tabs" role="tablist" aria-label="Tipo de historial">
+          <button class="history-tab active" type="button" data-tab="gastos">Gastos</button>
+          <button class="history-tab" type="button" data-tab="comprobantes">Comprobantes</button>
+        </div>
+
+        <section class="history-section active" id="gastos-panel">
+          <div id="history-status" class="status" role="status">Cargando historial de gastos...</div>
+          <div id="history-list" class="history-list"></div>
+        </section>
+
+        <section class="history-section" id="comprobantes-panel">
+          <div id="receipts-status" class="status" role="status">Cargando historial de comprobantes...</div>
+          <div id="receipts-list" class="history-list"></div>
+        </section>
       </section>
-            <nav class="bottom-nav" aria-label="Navegacion principal">
+      <nav class="bottom-nav" aria-label="Navegacion principal">
         <a href="/">Cargar</a>
         <a href="/comprobantes.html">Comprobantes</a>
         <a class="active" href="/historial.html">Historial</a>
