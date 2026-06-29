@@ -18,7 +18,7 @@
           <p>Carga directa</p>
           <h1 id="title">Cargar gasto</h1>
         </div>
-        <p class="helper-text">Selecciona mes, categoria y gasto. El importe reemplaza la celda correspondiente en Cash-25 Morettis (2).</p>
+        <p class="helper-text">Selecciona mes, categoria y gasto. Si tenes comprobante, podes adjuntarlo en la misma carga.</p>
         <form id="expense-form" class="form">
           <label id="access-code-field" hidden><span>Codigo de acceso</span><input id="codigo_acceso" name="codigo_acceso" autocomplete="off"></label>
           <label><span>Importe</span><input id="importe" name="importe" inputmode="decimal" autocomplete="off" placeholder="45000" required></label>
@@ -26,6 +26,8 @@
           <label><span>Categoria</span><select id="categoria" name="categoria" required></select></label>
           <label><span>Subcategoria</span><select id="subcategoria" name="subcategoria" required></select></label>
           <label><span>Gasto</span><select id="concepto" name="concepto" required></select></label>
+          <label><span>Comprobante opcional</span><input id="archivo" name="archivo" type="file" accept="image/*,.pdf"></label>
+          <label><span>Detalle del comprobante</span><textarea id="descripcion_comprobante" name="descripcion_comprobante" placeholder="Ej: factura de telefono, marzo"></textarea></label>
           <button id="submit-button" type="submit">Enviar gasto</button>
         </form>
         <div id="preview" class="preview" aria-live="polite">Selecciona los datos para ver el destino antes de enviar.</div>
@@ -33,7 +35,6 @@
       </section>
             <nav class="bottom-nav" aria-label="Navegacion principal">
         <a class="active" href="/">Cargar</a>
-        <a href="/comprobantes.html">Comprobantes</a>
         <a href="/historial.html">Historial</a>
       </nav>
     </main>
