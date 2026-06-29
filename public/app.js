@@ -6,6 +6,7 @@ const monthSelect = document.querySelector('#mes_columna');
 const categorySelect = document.querySelector('#categoria');
 const subcategorySelect = document.querySelector('#subcategoria');
 const conceptSelect = document.querySelector('#concepto');
+const fileInput = document.querySelector('#archivo');
 let catalog = { months: [], concepts: [] };
 init();
 async function init() {
@@ -45,18 +46,45 @@ categorySelect.addEventListener('change', () => { fillSubcategories(); fillConce
 subcategorySelect.addEventListener('change', fillConcepts);
 monthSelect.addEventListener('change', updatePreview);
 conceptSelect.addEventListener('change', updatePreview);
+fileInput.addEventListener('change', () => {
+  updatePreview();
+  const file = fileInput.files?.[0];
+  if (!file) return;
+  previewEl.textContent = previewEl.textContent + ' Comprobante: ' + file.name + ' - ' + formatBytes(file.size) + '.';
+});
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   statusEl.className = 'status'; statusEl.textContent = 'Guardando gasto...'; button.disabled = true;
   const data = Object.fromEntries(new FormData(form));
   try {
+    const file = fileInput.files?.[0];
+    if (file) {
+      if (file.size > 1500000) throw new Error('El archivo es muy grande. Usa una foto mas liviana o un PDF menor a 1,5 MB.');
+      data.archivo_nombre = file.name;
+      data.archivo_tipo = file.type || 'application/octet-stream';
+      data.archivo_tamano = file.size;
+      data.archivo_base64 = await fileToBase64(file);
+    }
     const response = await fetch('/api/gastos', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'No se pudo guardar');
     statusEl.className = 'status ok';
-    statusEl.textContent = 'Gasto cargado directo en ' + result.destino + ' (' + result.id + ').';
+    statusEl.textContent = 'Gasto cargado directo en ' + result.destino + (result.comprobante ? ' con comprobante guardado' : '') + ' (' + result.id + ').';
     form.reset(); fillSubcategories(); fillConcepts(); document.querySelector('#importe').focus();
   } catch (error) { statusEl.className = 'status error'; statusEl.textContent = error.message; }
   finally { button.disabled = false; }
 });
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+    reader.readAsDataURL(file);
+  });
+}
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+}
 function escapeHtml(value) { return String(value).replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char])); }
