@@ -136,8 +136,9 @@ async function createExpense(body) {
   const targetRange = "'" + MAIN_SHEET_NAME + "'!" + month.column + concept.row;
   const currentRows = await getValues(targetRange, 'UNFORMATTED_VALUE');
   const previousValue = currentRows?.[0]?.[0] ?? '';
-  const shouldAddToExistingValue = concept.concept === 'Ap. y Contr';
-  const newValue = shouldAddToExistingValue ? parseAmount(previousValue) + amount : amount;
+  const shouldUseWebAccumulation = concept.concept === 'Ap. y Contr';
+  const previousWebTotal = shouldUseWebAccumulation ? await getWebTotalForConceptMonth(concept.concept, month.column) : 0;
+  const newValue = shouldUseWebAccumulation ? previousWebTotal + amount : amount;
   await updateValues(targetRange, [[newValue]]);
 
   const message = 'Carga web directa | ' + concept.type + ' > ' + concept.category + ' > ' + subcategory + ' > ' + concept.concept + ' | ' + month.label;
@@ -158,7 +159,7 @@ async function createExpense(body) {
     month.column,
     'alta',
     'cargado',
-    'Carga directa en ' + MAIN_SHEET_NAME + '!' + month.column + concept.row + '. Valor anterior: ' + previousValue + '. ' + (shouldAddToExistingValue ? 'Se sumo el importe cargado.' : 'Se reemplazo por el importe cargado.'),
+    'Carga directa en ' + MAIN_SHEET_NAME + '!' + month.column + concept.row + '. Valor anterior: ' + previousValue + '. ' + (shouldUseWebAccumulation ? (previousWebTotal ? 'Se sumo a cargas web anteriores: ' + previousWebTotal + '.' : 'Primera carga web del mes: se reemplazo la proyeccion.') : 'Se reemplazo por el importe cargado.'),
     now,
   ]]);
 
@@ -174,7 +175,8 @@ async function createExpense(body) {
     destino: MAIN_SHEET_NAME + '!' + month.column + concept.row,
     valorAnterior: previousValue,
     valorNuevo: newValue,
-    modoCarga: shouldAddToExistingValue ? 'suma' : 'reemplazo',
+    acumuladoWebAnterior: previousWebTotal,
+    modoCarga: shouldUseWebAccumulation ? (previousWebTotal ? 'suma_web' : 'primer_real_web') : 'reemplazo',
   };
 }
 
@@ -197,6 +199,14 @@ async function listHistory() {
     .filter((expense) => expense.id)
     .reverse()
     .slice(0, 50);
+}
+
+async function getWebTotalForConceptMonth(conceptName, monthColumn) {
+  const rows = await getValues("'" + SHEET_NAME + "'!A2:R", 'UNFORMATTED_VALUE');
+  return rows
+    .map((row, index) => expenseFromRow(row, index + 2))
+    .filter((expense) => expense.estado === 'cargado' && expense.concepto === conceptName && expense.columnaDestino === monthColumn)
+    .reduce((total, expense) => total + expense.importe, 0);
 }
 
 async function createReceipt(body) {
