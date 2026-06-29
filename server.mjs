@@ -95,6 +95,8 @@ createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/catalogo') return sendJson(res, 200, { months: MONTHS, concepts: CONCEPTS });
     if (req.method === 'GET' && url.pathname === '/api/pendientes') return sendJson(res, 200, await listPendingExpenses());
     if (req.method === 'GET' && url.pathname === '/api/historial') return sendJson(res, 200, await listHistory());
+    if (req.method === 'GET' && url.pathname === '/api/historial-comprobantes') return sendJson(res, 200, await listReceiptHistory());
+    if (req.method === 'GET' && url.pathname === '/api/comprobantes/archivo') return sendReceiptFile(res, url.searchParams.get('id'));
     if (req.method === 'POST' && url.pathname === '/api/aprobar') return sendJson(res, 200, await approveExpense(await readJson(req)));
     if (req.method === 'POST' && url.pathname === '/api/gastos') return sendJson(res, 201, await createExpense(await readJson(req)));
     if (req.method === 'POST' && url.pathname === '/api/comprobantes') return sendJson(res, 201, await createReceipt(await readJson(req))); 
@@ -223,6 +225,42 @@ async function createReceipt(body) {
   return { id, estado: 'guardado', archivo: fileName, partes: chunks.length };
 }
 
+async function listReceiptHistory() {
+  try {
+    const rows = await getValues("'" + RECEIPTS_SHEET_NAME + "'!A2:I");
+    return rows
+      .map(receiptFromRow)
+      .filter((receipt) => receipt.id)
+      .reverse()
+      .slice(0, 50);
+  } catch (error) {
+    if (String(error.message || '').includes('Unable to parse range')) return [];
+    throw error;
+  }
+}
+
+async function sendReceiptFile(res, id) {
+  const normalizedId = String(id || '').trim();
+  if (!normalizedId) throw validationError('Falta el comprobante');
+
+  const rows = await getValues("'" + RECEIPTS_SHEET_NAME + "'!A2:Z");
+  const row = rows.find((item) => item[0] === normalizedId);
+  if (!row) throw validationError('No encontre ese comprobante');
+
+  const fileName = String(row[5] || 'comprobante');
+  const fileType = String(row[6] || 'application/octet-stream');
+  const fileBase64 = row.slice(9).join('');
+  const fileBuffer = Buffer.from(fileBase64, 'base64');
+
+  res.writeHead(200, {
+    'content-type': fileType,
+    'content-length': fileBuffer.length,
+    'content-disposition': 'inline; filename="' + encodeHeaderFileName(fileName) + '"',
+    'cache-control': 'private, max-age=3600',
+  });
+  res.end(fileBuffer);
+}
+
 async function listPendingExpenses() {
   const rows = await getValues("'" + SHEET_NAME + "'!A2:R");
   return rows
@@ -278,6 +316,21 @@ function expenseFromRow(row, rowNumber) {
     estado: row[15] || '',
     observaciones: row[16] || '',
     fechaRevision: row[17] || '',
+  };
+}
+
+function receiptFromRow(row) {
+  return {
+    id: row[0] || '',
+    fecha: row[1] || '',
+    persona: row[2] || '',
+    importe: parseAmount(row[3]),
+    descripcion: row[4] || '',
+    archivoNombre: row[5] || '',
+    archivoTipo: row[6] || '',
+    archivoTamano: Number(row[7] || 0),
+    partes: Number(row[8] || 0),
+    archivoUrl: row[0] ? '/api/comprobantes/archivo?id=' + encodeURIComponent(row[0]) : '',
   };
 }
 
@@ -386,5 +439,6 @@ function parseAccessUsers(value) {
     .filter(Boolean);
 }
 function chunkText(value, size) { const chunks = []; for (let index = 0; index < value.length; index += size) chunks.push(value.slice(index, index + size)); return chunks; }
+function encodeHeaderFileName(value) { return String(value).replace(/[\"\\\r\n]/g, '_'); }
 function sendJson(res, statusCode, payload) { res.writeHead(statusCode, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(payload)); }
 function base64url(value) { return Buffer.from(value).toString('base64url'); }
