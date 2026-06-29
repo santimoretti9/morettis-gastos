@@ -10,6 +10,8 @@ const SHEET_NAME = 'Mensajes Gastos';
 const MAIN_SHEET_NAME = 'Cash-25 Morettis (2)';
 const RECEIPTS_SHEET_NAME = 'Comprobantes';
 const RECEIPT_CHUNK_SIZE = 45000;
+const APPLE_TOUCH_ICON_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAAEDUlEQVR4nO3SS3IUMRBFUXbBvtgG+x/DiAEf29iWKjNfHkWcabf06n75+v3bD0jxpfoCcJKgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImyqig/3Wq75Ro8s4jgv6fU33HBAk7tw76I6f6zhMl7SxoonZuG/RnTvXdJ0nbOTLormN3k7hxy6BPnep3dJa6cXTQHQfvIHlfQS+UvG980B1Ht+09K4LuOLxd71gTdMfxbXreqqA7fgB7nrUu6I4fwZbnCDrcti1XBt3xQ9hR0HEfw4aCjvsg9hN03EexnaCjPortBB33Yewm6LiPYzNBx30gewk67iPZStCfPtUb2EnQR0/1BnYS9PFTvYONBH38VG9hH0EfP9V72EbQx0/1JnYR9NFTvYldBH382OTvU92KoD957PH7qW5lTdA3Q5i2xUtvOPU7nUQHPT3q23c/+VtdxAc9Neon7nz69zoQ9KH/6LjBW3c+/XsdrAh6WtRP3fXGb1ZbE/SUqJ+8463fFfSDQ986Xd79nrvd/G1BPzj0rVP95vfe6fbvC/rBoW+c6je/9z5P/IegBwf9P//b6S5P/IegHxz61pkQs6ADg04I6qP/LejQoKvCqvjP6p0F/eDQt071f3XbWdAPDX3rVP9Xt50F/eDQt07HmAW9IOjbwd387Wk7C/rBoSed6ndWtyLooKg7vLG6FUGHRN3lfdWtCFrQ7XYW9INDdzyd3lbdiqCHR93tXdWtCHpw1B3fVN2KoIdG3fU91a0IWtDtdxb0g0NXnM5vqW5F0E3ul/KO6lYE3eiOCW+obkXQze45/f7VrQi64V0n3726FUE3vOvku1e3Iuim95167+pWBO3Oo+/8FkE3ufe0+1be+zWCbnD3SXftcveXCLrB3SfdtcvdXyLowjdMuGP3N/xJ0AVvqb5T4s6/CHqxxJ0FvVjizoJeLHFnQS+WuLOgF0vcWdCLJe4s6MUSdxb0Yok7C3qxxJ0FvVjizoJeLHFnQS+WuLOgF0vcWdCLJe4s6MUSdxb0Yok7C3qxxJ0FvVjizoJeLHHnlkF/duzqu0+StrOgl0vbuW3QHx27+s4TJe0saKJ2bh30ewavvmOChJ1HBP3a4NV3SjR551FBw1sETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UX4CRHb9zg8IOwEAAAAASUVORK5CYII=';
+const FAVICON_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAeklEQVR4nO3VMQ6AIAyFYW7hvbyG9591MmEQ258WkeSRdKKv+UIHynbs58wqAgggwK8B9ekZ7sm7ARThza4F8CJIDgMsBM10AVoDaT8CWHt9uksHvA0lvWkA62WGAMiuhwFaCJIPAzLuw4C7J5Jf5zMSYArgixJAAAEuotyqa3EwLzIAAAAASUVORK5CYII=';
 
 const MONTHS = [
   { label: 'Enero', month: 'ENE', column: 'I' },
@@ -92,6 +94,9 @@ if ((!credentialsPath && !serviceAccountJson) || !spreadsheetId) { console.error
 createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://' + req.headers.host);
+    if (req.method === 'GET' && url.pathname === '/apple-touch-icon.png') return sendBase64File(res, 'image/png', APPLE_TOUCH_ICON_BASE64);
+    if (req.method === 'GET' && url.pathname === '/favicon.png') return sendBase64File(res, 'image/png', FAVICON_BASE64);
+    if (req.method === 'GET' && url.pathname === '/site.webmanifest') return sendJson(res, 200, siteManifest());
     if (req.method === 'GET' && url.pathname === '/api/catalogo') return sendJson(res, 200, { months: MONTHS, concepts: CONCEPTS });
     if (req.method === 'GET' && url.pathname === '/api/pendientes') return sendJson(res, 200, await listPendingExpenses());
     if (req.method === 'GET' && url.pathname === '/api/historial') return sendJson(res, 200, await listHistory());
@@ -411,7 +416,7 @@ async function serveStatic(res, pathname) {
   try { const content = await readFile(filePath); res.writeHead(200, { 'content-type': contentType(filePath) }); res.end(content); } catch { sendJson(res, 404, { error: 'No encontrado' }); }
 }
 
-function contentType(filePath) { return { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8' }[extname(filePath)] || 'application/octet-stream'; }
+function contentType(filePath) { return { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.png': 'image/png', '.webmanifest': 'application/manifest+json; charset=utf-8' }[extname(filePath)] || 'application/octet-stream'; }
 async function readJson(req) { let body = ''; for await (const chunk of req) body += chunk; return JSON.parse(body || '{}'); }
 async function readEnv(filePath) {
   try {
@@ -440,5 +445,7 @@ function parseAccessUsers(value) {
 }
 function chunkText(value, size) { const chunks = []; for (let index = 0; index < value.length; index += size) chunks.push(value.slice(index, index + size)); return chunks; }
 function encodeHeaderFileName(value) { return String(value).replace(/[\"\\\r\n]/g, '_'); }
+function sendBase64File(res, contentTypeValue, base64Value) { const fileBuffer = Buffer.from(base64Value, 'base64'); res.writeHead(200, { 'content-type': contentTypeValue, 'content-length': fileBuffer.length, 'cache-control': 'public, max-age=86400' }); res.end(fileBuffer); }
+function siteManifest() { return { name: 'Morettis Gastos', short_name: 'Morettis', start_url: '/', display: 'standalone', background_color: '#eef3f1', theme_color: '#176b52', icons: [{ src: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }, { src: '/favicon.png', sizes: '32x32', type: 'image/png' }] }; }
 function sendJson(res, statusCode, payload) { res.writeHead(statusCode, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(payload)); }
 function base64url(value) { return Buffer.from(value).toString('base64url'); }
