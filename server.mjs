@@ -136,7 +136,9 @@ async function createExpense(body) {
   const targetRange = "'" + MAIN_SHEET_NAME + "'!" + month.column + concept.row;
   const currentRows = await getValues(targetRange, 'UNFORMATTED_VALUE');
   const previousValue = currentRows?.[0]?.[0] ?? '';
-  await updateValues(targetRange, [[amount]]);
+  const shouldAddToExistingValue = concept.concept === 'Ap. y Contr';
+  const newValue = shouldAddToExistingValue ? parseAmount(previousValue) + amount : amount;
+  await updateValues(targetRange, [[newValue]]);
 
   const message = 'Carga web directa | ' + concept.type + ' > ' + concept.category + ' > ' + subcategory + ' > ' + concept.concept + ' | ' + month.label;
   await appendValues("'" + SHEET_NAME + "'!A1:R", [[
@@ -156,7 +158,7 @@ async function createExpense(body) {
     month.column,
     'alta',
     'cargado',
-    'Carga directa en ' + MAIN_SHEET_NAME + '!' + month.column + concept.row + '. Valor anterior: ' + previousValue,
+    'Carga directa en ' + MAIN_SHEET_NAME + '!' + month.column + concept.row + '. Valor anterior: ' + previousValue + '. ' + (shouldAddToExistingValue ? 'Se sumo el importe cargado.' : 'Se reemplazo por el importe cargado.'),
     now,
   ]]);
 
@@ -171,7 +173,8 @@ async function createExpense(body) {
     filaDestino: concept.row,
     destino: MAIN_SHEET_NAME + '!' + month.column + concept.row,
     valorAnterior: previousValue,
-    valorNuevo: amount,
+    valorNuevo: newValue,
+    modoCarga: shouldAddToExistingValue ? 'suma' : 'reemplazo',
   };
 }
 
