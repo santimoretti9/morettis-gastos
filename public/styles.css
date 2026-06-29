@@ -38,6 +38,12 @@ button:disabled { opacity: 0.68; cursor: progress; }
 .bottom-nav { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 5; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 7px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255, 255, 255, 0.94); box-shadow: 0 12px 30px rgba(18, 32, 47, 0.18); }
 .bottom-nav a { min-height: 42px; display: grid; place-items: center; border-radius: 6px; color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 800; }
 .bottom-nav a.active { color: var(--accent-dark); background: var(--accent-soft); }
+.history-tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin: 18px 0; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: #f8fafb; }
+.history-tab { min-height: 42px; border-radius: 6px; color: var(--muted); background: transparent; font-size: 14px; }
+.history-tab:hover { color: var(--accent-dark); background: var(--accent-soft); }
+.history-tab.active { color: #fff; background: var(--accent); }
+.history-section { display: none; }
+.history-section.active { display: block; }
 .history-list { display: grid; gap: 12px; }
 .history-item { border: 1px solid var(--line); border-radius: 8px; padding: 14px; background: #fff; }
 .history-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
@@ -49,6 +55,10 @@ dl { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 14px 0; }
 dt { color: var(--muted); font-size: 12px; font-weight: 800; }
 dd { margin: 3px 0 0; font-size: 14px; }
 .muted { color: var(--muted); }
+.receipt-preview-link { display: block; margin: 14px 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #f8fafb; }
+.receipt-preview-link img { display: block; width: 100%; max-height: 360px; object-fit: contain; }
+.file-button { min-height: 42px; display: inline-grid; place-items: center; margin-top: 2px; padding: 0 14px; border-radius: 8px; color: #fff; background: var(--accent); font-size: 14px; font-weight: 800; text-decoration: none; }
+.file-button:hover { background: var(--accent-dark); }
 .review-shell { width: min(100%, 980px); margin: 0 auto; padding: 28px; }
 .review-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
 .review-header h1 { margin: 0; }
