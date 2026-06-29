@@ -141,6 +141,9 @@ async function createExpense(body) {
   const newValue = shouldUseWebAccumulation ? previousWebTotal + amount : amount;
   await updateValues(targetRange, [[newValue]]);
 
+  const receiptDescription = String(body.descripcion_comprobante || '').trim() || concept.concept + ' - ' + month.label;
+  const receiptResult = await saveReceiptFromBody(body, accessUser, amount, receiptDescription, false);
+
   const message = 'Carga web directa | ' + concept.type + ' > ' + concept.category + ' > ' + subcategory + ' > ' + concept.concept + ' | ' + month.label;
   await appendValues("'" + SHEET_NAME + "'!A1:R", [[
     id,
@@ -177,6 +180,7 @@ async function createExpense(body) {
     valorNuevo: newValue,
     acumuladoWebAnterior: previousWebTotal,
     modoCarga: shouldUseWebAccumulation ? (previousWebTotal ? 'suma_web' : 'primer_real_web') : 'reemplazo',
+    comprobante: receiptResult,
   };
 }
 
@@ -211,14 +215,17 @@ async function getWebTotalForConceptMonth(conceptName, monthColumn) {
 
 async function createReceipt(body) {
   const accessUser = validateAccessCode(body.codigo_acceso);
+  return saveReceiptFromBody(body, accessUser, parseAmount(body.importe), String(body.descripcion || '').trim(), true);
+}
+
+async function saveReceiptFromBody(body, accessUser, amount, description, required) {
   const person = String(body.persona || accessUser).trim();
-  const description = String(body.descripcion || '').trim();
   const fileName = String(body.archivo_nombre || '').trim();
-  const fileType = String(body.archivo_tipo || '').trim();
+  const fileType = String(body.archivo_tipo || '').trim() || 'application/octet-stream';
   const fileSize = Number(body.archivo_tamano || 0);
   const fileBase64 = String(body.archivo_base64 || '').trim();
-  const amount = parseAmount(body.importe);
 
+  if (!fileName && !fileBase64 && !required) return null;
   if (!person) throw validationError('Persona requerida');
   if (!fileName || !fileBase64) throw validationError('Falta el archivo del comprobante');
   if (fileSize > 1500000 || fileBase64.length > 2100000) throw validationError('El archivo es muy grande');
