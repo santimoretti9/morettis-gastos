@@ -50,3 +50,55 @@
     <script src="/historial.js"></script>
   </body>
 </html>
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Historial de cargas</title>
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <meta name="theme-color" content="#176b52">
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="app-shell list-shell">
+      <section class="expense-panel wide-panel" aria-labelledby="title">
+        <div class="brand-row"><span class="mark">M</span><span>Morettis</span></div>
+        <div class="page-heading">
+          <p>Control</p>
+          <h1 id="title">Historial</h1>
+        </div>
+        <p class="helper-text">Consulta las cargas que fueron al Excel y los comprobantes subidos desde la pagina.</p>
+
+        <div class="history-tabs" role="tablist" aria-label="Tipo de historial">
+          <button class="history-tab active" type="button" data-tab="gastos">Gastos</button>
+          <button class="history-tab" type="button" data-tab="comprobantes">Comprobantes</button>
+        </div>
+
+        <section class="history-section active" id="gastos-panel">
+          <div class="history-controls" aria-label="Controles de historial de gastos">
+            <div class="history-summary" id="history-summary">Cargando gastos...</div>
+            <label><span>Buscar</span><input id="history-search" type="search" placeholder="Gasto, persona o categoria"></label>
+            <label><span>Persona</span><select id="history-person"><option value="">Todas</option></select></label>
+            <label><span>MES</span><select id="history-month"><option value="">Todos</option></select></label>
+            <label><span>Orden</span><select id="history-order"><option value="newest">Mas recientes</option><option value="oldest">Mas antiguos</option><option value="amount_desc">Mayor importe</option><option value="amount_asc">Menor importe</option></select></label>
+          </div>
+          <div id="history-status" class="status" role="status">Cargando historial de gastos...</div>
+          <div id="history-list" class="history-list"></div>
+        </section>
+
+        <section class="history-section" id="comprobantes-panel">
+          <div id="receipts-status" class="status" role="status">Cargando historial de comprobantes...</div>
+          <div id="receipts-list" class="history-list"></div>
+        </section>
+      </section>
+      <nav class="bottom-nav" aria-label="Navegacion principal">
+        <a href="/">Cargar</a>
+        <a class="active" href="/historial.html">Historial</a>
+      </nav>
+    </main>
+    <script src="/historial.js"></script>
+  </body>
+</html>
