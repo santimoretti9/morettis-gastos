@@ -42,7 +42,7 @@ const CONCEPTS = [
   { category: 'Ingresos', concept: 'Devolucion IVA', row: 10, type: 'INGRESOS' },
   { category: 'Ingresos', concept: 'Intereses Fondo Pionero', row: 11, type: 'INGRESOS' },
   { category: 'Sueldos', concept: 'GR', row: 16, type: 'EGRESOS' },
-  { category: 'Sueldos', concept: 'Ap. y Contr', row: 17, type: 'EGRESOS' },
+  { category: 'Sueldos', concept: '(VEP) Y (UATRE)', row: 17, type: 'EGRESOS' },
   { category: 'Sueldos', concept: 'Guada', row: 18, type: 'EGRESOS' },
   { category: 'Sueldos', concept: 'Santi', row: 19, type: 'EGRESOS' },
   { category: 'Impuestos', concept: 'I. Gcias - Bs Pers. (anticip)', row: 23, type: 'EGRESOS' },
@@ -275,7 +275,7 @@ async function createExpense(body) {
   const targetRange = "'" + MAIN_SHEET_NAME + "'!" + month.column + concept.row;
   const currentRows = await getValues(targetRange, 'UNFORMATTED_VALUE');
   const previousValue = currentRows?.[0]?.[0] ?? '';
-  const shouldUseWebAccumulation = concept.concept === 'Ap. y Contr';
+  const shouldUseWebAccumulation = concept.concept === '(VEP) Y (UATRE)';
   const previousWebTotal = shouldUseWebAccumulation ? await getWebTotalForConceptMonth(concept.concept, month.column) : 0;
   const newValue = shouldUseWebAccumulation ? previousWebTotal + amount : amount;
   await updateValues(targetRange, [[newValue]]);
