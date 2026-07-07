@@ -10,6 +10,7 @@ const SHEET_NAME = 'Mensajes Gastos';
 const MAIN_SHEET_NAME = 'Cash-25 Morettis (2)';
 const RECEIPTS_SHEET_NAME = 'Comprobantes';
 const RECEIPT_CHUNK_SIZE = 45000;
+const LOADED_CELL_BACKGROUND = { red: 238 / 255, green: 236 / 255, blue: 225 / 255 };
 const BOARD_PRICE_SOURCES = [
   { id: 'bcr', name: 'BCR - Camara Arbitral de Cereales', url: 'https://www.cac.bcr.com.ar/es/precios-de-pizarra' },
   { id: 'matba', name: 'Matba Rofex / FyO', url: 'https://matbarofex.primary.ventures/fyo/futurosagropecuarios' },
@@ -278,6 +279,7 @@ async function createExpense(body) {
   const previousWebTotal = shouldUseWebAccumulation ? await getWebTotalForConceptMonth(concept.concept, month.column) : 0;
   const newValue = shouldUseWebAccumulation ? previousWebTotal + amount : amount;
   await updateValues(targetRange, [[newValue]]);
+  await paintLoadedCell(MAIN_SHEET_NAME, month.column, concept.row);
 
   const receiptDescription = String(body.descripcion_comprobante || '').trim() || concept.concept + ' - ' + month.label;
   const receiptResult = await saveReceiptFromBody(body, accessUser, amount, receiptDescription, false);
@@ -450,6 +452,7 @@ async function approveExpense(body) {
   const newValue = currentValue + expense.importe;
 
   await updateValues(targetRange, [[newValue]]);
+  await paintLoadedCell(MAIN_SHEET_NAME, expense.columnaDestino, expense.filaDestino);
   await updateValues("'" + SHEET_NAME + "'!P" + rowNumber + ':R' + rowNumber, [['cargado', 'Aprobado y cargado en ' + MAIN_SHEET_NAME + '!' + expense.columnaDestino + expense.filaDestino, new Date().toISOString()]]);
 
   return {
@@ -506,6 +509,53 @@ async function ensureReceiptsSheet() {
     await batchUpdate({ requests: [{ addSheet: { properties: { title: RECEIPTS_SHEET_NAME } } }] });
   }
   await updateValues("'" + RECEIPTS_SHEET_NAME + "'!A1:J1", [header]);
+}
+
+async function paintLoadedCell(sheetName, columnLetter, rowNumber) {
+  const sheetId = await getSheetIdByTitle(sheetName);
+  const columnIndex = columnLetterToIndex(columnLetter);
+  const rowIndex = Number(rowNumber) - 1;
+  if (!Number.isInteger(sheetId) || columnIndex < 0 || rowIndex < 0) throw validationError('No se pudo identificar la celda para pintar');
+  await batchUpdate({
+    requests: [{
+      repeatCell: {
+        range: {
+          sheetId,
+          startRowIndex: rowIndex,
+          endRowIndex: rowIndex + 1,
+          startColumnIndex: columnIndex,
+          endColumnIndex: columnIndex + 1,
+        },
+        cell: { userEnteredFormat: { backgroundColor: LOADED_CELL_BACKGROUND } },
+        fields: 'userEnteredFormat.backgroundColor',
+      },
+    }],
+  });
+}
+
+async function getSheetIdByTitle(sheetName) {
+  if (!getSheetIdByTitle.cache) getSheetIdByTitle.cache = new Map();
+  if (getSheetIdByTitle.cache.has(sheetName)) return getSheetIdByTitle.cache.get(sheetName);
+  const metadata = await getSpreadsheetMetadata();
+  const sheet = metadata.sheets?.find((item) => item.properties?.title === sheetName);
+  if (!sheet) throw validationError('No encontre la hoja ' + sheetName);
+  const sheetId = sheet.properties.sheetId;
+  getSheetIdByTitle.cache.set(sheetName, sheetId);
+  return sheetId;
+}
+
+async function getSpreadsheetMetadata() {
+  const accessToken = await getAccessToken();
+  const url = new URL('https://sheets.googleapis.com/v4/spreadsheets/' + spreadsheetId);
+  url.searchParams.set('fields', 'sheets.properties(sheetId,title)');
+  const response = await fetch(url, { headers: { authorization: 'Bearer ' + accessToken } });
+  const data = await response.json();
+  if (!response.ok) throw new Error(JSON.stringify(data));
+  return data;
+}
+
+function columnLetterToIndex(columnLetter) {
+  return String(columnLetter || '').trim().toUpperCase().split('').reduce((index, letter) => index * 26 + letter.charCodeAt(0) - 64, 0) - 1;
 }
 
 async function batchUpdate(payload) {
