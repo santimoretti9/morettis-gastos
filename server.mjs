@@ -10,6 +10,11 @@ const SHEET_NAME = 'Mensajes Gastos';
 const MAIN_SHEET_NAME = 'Cash-25 Morettis (2)';
 const RECEIPTS_SHEET_NAME = 'Comprobantes';
 const RECEIPT_CHUNK_SIZE = 45000;
+const BOARD_PRICE_SOURCES = [
+  { id: 'bcr', name: 'BCR - Camara Arbitral de Cereales', url: 'https://www.cac.bcr.com.ar/es/precios-de-pizarra' },
+  { id: 'matba', name: 'Matba Rofex / FyO', url: 'https://matbarofex.primary.ventures/fyo/futurosagropecuarios' },
+  { id: 'acabase', name: 'ACA Base', url: 'https://www.acabase.com.ar/' },
+];
 const APPLE_TOUCH_ICON_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAAEDUlEQVR4nO3SS3IUMRBFUXbBvtgG+x/DiAEf29iWKjNfHkWcabf06n75+v3bD0jxpfoCcJKgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImyqig/3Wq75Ro8s4jgv6fU33HBAk7tw76I6f6zhMl7SxoonZuG/RnTvXdJ0nbOTLormN3k7hxy6BPnep3dJa6cXTQHQfvIHlfQS+UvG980B1Ht+09K4LuOLxd71gTdMfxbXreqqA7fgB7nrUu6I4fwZbnCDrcti1XBt3xQ9hR0HEfw4aCjvsg9hN03EexnaCjPortBB33Yewm6LiPYzNBx30gewk67iPZStCfPtUb2EnQR0/1BnYS9PFTvYONBH38VG9hH0EfP9V72EbQx0/1JnYR9NFTvYldBH382OTvU92KoD957PH7qW5lTdA3Q5i2xUtvOPU7nUQHPT3q23c/+VtdxAc9Neon7nz69zoQ9KH/6LjBW3c+/XsdrAh6WtRP3fXGb1ZbE/SUqJ+8463fFfSDQ986Xd79nrvd/G1BPzj0rVP95vfe6fbvC/rBoW+c6je/9z5P/IegBwf9P//b6S5P/IegHxz61pkQs6ADg04I6qP/LejQoKvCqvjP6p0F/eDQt071f3XbWdAPDX3rVP9Xt50F/eDQt07HmAW9IOjbwd387Wk7C/rBoSed6ndWtyLooKg7vLG6FUGHRN3lfdWtCFrQ7XYW9INDdzyd3lbdiqCHR93tXdWtCHpw1B3fVN2KoIdG3fU91a0IWtDtdxb0g0NXnM5vqW5F0E3ul/KO6lYE3eiOCW+obkXQze45/f7VrQi64V0n3726FUE3vOvku1e3Iuim95167+pWBO3Oo+/8FkE3ufe0+1be+zWCbnD3SXftcveXCLrB3SfdtcvdXyLowjdMuGP3N/xJ0AVvqb5T4s6/CHqxxJ0FvVjizoJeLHFnQS+WuLOgF0vcWdCLJe4s6MUSdxb0Yok7C3qxxJ0FvVjizoJeLHFnQS+WuLOgF0vcWdCLJe4s6MUSdxb0Yok7C3qxxJ0FvVjizoJeLHHnlkF/duzqu0+StrOgl0vbuW3QHx27+s4TJe0saKJ2bh30ewavvmOChJ1HBP3a4NV3SjR551FBw1sETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UX4CRHb9zg8IOwEAAAAASUVORK5CYII=';
 const FAVICON_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAeklEQVR4nO3VMQ6AIAyFYW7hvbyG9591MmEQ258WkeSRdKKv+UIHynbs58wqAgggwK8B9ekZ7sm7ARThza4F8CJIDgMsBM10AVoDaT8CWHt9uksHvA0lvWkA62WGAMiuhwFaCJIPAzLuw4C7J5Jf5zMSYArgixJAAAEuotyqa3EwLzIAAAAASUVORK5CYII=';
 
@@ -101,6 +106,7 @@ createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/pendientes') return sendJson(res, 200, await listPendingExpenses());
     if (req.method === 'GET' && url.pathname === '/api/historial') return sendJson(res, 200, await listHistory());
     if (req.method === 'GET' && url.pathname === '/api/historial-comprobantes') return sendJson(res, 200, await listReceiptHistory());
+    if (req.method === 'GET' && url.pathname === '/api/precio-pizarra') return sendJson(res, 200, await getBoardPriceReport());
     if (req.method === 'GET' && url.pathname === '/api/comprobantes/archivo') return sendReceiptFile(res, url.searchParams.get('id'));
     if (req.method === 'POST' && url.pathname === '/api/aprobar') return sendJson(res, 200, await approveExpense(await readJson(req)));
     if (req.method === 'POST' && url.pathname === '/api/gastos') return sendJson(res, 201, await createExpense(await readJson(req)));
@@ -113,6 +119,138 @@ createServer(async (req, res) => {
     sendJson(res, error.statusCode || 500, { error: error.statusCode ? error.message : 'No se pudo guardar el gasto' });
   }
 }).listen(PORT, () => console.log('Mini web lista en http://localhost:' + PORT));
+
+async function getBoardPriceReport() {
+  const generatedAt = new Date().toISOString();
+  const sources = await Promise.all(BOARD_PRICE_SOURCES.map(loadBoardPriceSource));
+  const bcr = sources.find((source) => source.id === 'bcr');
+  const products = bcr?.products || [];
+  const availableSources = sources.filter((source) => source.status === 'ok').length;
+  return {
+    generatedAt,
+    title: 'Precio Pizarra',
+    dateLabel: bcr?.dateLabel || formatReportDate(generatedAt),
+    products,
+    summary: buildBoardPriceSummary(products, sources),
+    sources,
+    status: products.length ? 'ok' : 'partial',
+    sourceCount: availableSources,
+  };
+}
+
+async function loadBoardPriceSource(source) {
+  try {
+    const response = await fetch(source.url, {
+      headers: {
+        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'user-agent': 'Morettis precios pizarra/1.0',
+      },
+    });
+    const html = await response.text();
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    if (source.id === 'bcr') return parseBcrBoardPrices(source, html);
+    if (source.id === 'matba') return parseMatbaSource(source, html);
+    if (source.id === 'acabase') return parseAcabaseSource(source, html);
+    return { ...source, status: 'ok', notes: 'Fuente consultada.', products: [] };
+  } catch (error) {
+    return { ...source, status: 'error', notes: 'No se pudo consultar la fuente: ' + String(error.message || error), products: [] };
+  }
+}
+
+function parseBcrBoardPrices(source, html) {
+  const text = htmlToText(html);
+  const dateMatch = text.match(/Precios\s+Pizarra\s+del\s+d[ií]a\s+([0-9/]+)/i);
+  const products = ['Trigo', 'Maiz', 'Girasol', 'Soja', 'Sorgo']
+    .map((name) => parseBcrProduct(text, name))
+    .filter(Boolean);
+  const exchangeMatch = text.match(/TC\s+BNA\s+Divisas\s+Comprador\s+([^:]+):\s*\$?\s*([0-9.,]+)/i);
+  const timestampMatch = text.match(/Rosario,\s*([^\n]+?hs\.?)/i);
+  return {
+    ...source,
+    status: products.length ? 'ok' : 'partial',
+    dateLabel: dateMatch?.[1] || '',
+    timestamp: timestampMatch?.[1] || '',
+    exchangeRate: exchangeMatch ? { label: exchangeMatch[1].trim(), value: exchangeMatch[2].trim() } : null,
+    notes: products.length ? 'Precios corrientes expresados en $/Tn, entrega enseguida y pago contado, zona Rosario.' : 'La fuente respondio, pero no se pudieron leer precios publicados.',
+    products,
+  };
+}
+
+function parseBcrProduct(text, productName) {
+  const lines = String(text || '').split('\n').map((line) => line.trim()).filter(Boolean);
+  const normalizedProduct = normalizeMarketText(productName);
+  const index = lines.findIndex((line) => normalizeMarketText(line) === normalizedProduct);
+  if (index === -1) return null;
+  const ars = cleanPriceValue(lines[index + 1] || '');
+  let usd = cleanPriceValue(lines[index + 2] || '');
+  const nextLine = cleanPriceValue(lines[index + 3] || '');
+  if (/^US\$/i.test(usd) && nextLine && /^[0-9.,]+$/.test(nextLine)) usd = usd + ' ' + nextLine;
+  return {
+    product: productName === 'Maiz' ? 'Maiz' : productName,
+    ars,
+    usd,
+    source: 'BCR',
+  };
+}
+
+function normalizeMarketText(value) {
+  return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+function parseMatbaSource(source, html) {
+  const text = htmlToText(html);
+  const needsJs = /enable JavaScript/i.test(text);
+  return {
+    ...source,
+    status: needsJs ? 'partial' : 'ok',
+    notes: needsJs ? 'La fuente carga sus cotizaciones con JavaScript. Queda citada para control manual desde el link.' : 'Fuente consultada; la version publica no expone una tabla simple para leer automaticamente.',
+    products: [],
+  };
+}
+
+function parseAcabaseSource(source, html) {
+  const text = htmlToText(html);
+  const hasMarkets = /Moneda Pizarra y Precios|FISICO DE GRANO|FÍSICO DE GRANO/i.test(text);
+  return {
+    ...source,
+    status: hasMarkets ? 'partial' : 'ok',
+    notes: hasMarkets ? 'La portada publica muestra secciones de pizarra y fisico, pero no expone valores completos sin interaccion o sesion.' : 'Fuente consultada; no se encontraron precios completos en la portada publica.',
+    products: [],
+  };
+}
+
+function buildBoardPriceSummary(products, sources) {
+  if (!products.length) return 'No se pudieron leer precios automaticos completos. Revisar los links de fuentes.';
+  const names = products.map((item) => item.product).join(', ');
+  const partialSources = sources.filter((source) => source.status !== 'ok').map((source) => source.name);
+  return 'Lectura automatica disponible para ' + names + '. ' + (partialSources.length ? 'Fuentes para control manual: ' + partialSources.join(', ') + '.' : 'Todas las fuentes respondieron correctamente.');
+}
+
+function cleanPriceValue(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function htmlToText(html) {
+  return String(html || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/<\/(h[1-6]|p|div|li|tr|td|th|section|article)>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\r/g, '')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n\s+/g, '\n')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+}
+
+function formatReportDate(value) {
+  return new Date(value).toLocaleDateString('es-AR', { dateStyle: 'full' });
+}
 
 async function createExpense(body) {
   const accessUser = validateAccessCode(body.codigo_acceso);
