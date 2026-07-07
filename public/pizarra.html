@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Precio Pizarra</title>
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <meta name="theme-color" content="#176b52">
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="app-shell list-shell">
+      <section class="expense-panel wide-panel" aria-labelledby="title">
+        <div class="brand-row"><span class="mark">M</span><span>Morettis</span></div>
+        <div class="page-heading">
+          <p>Mercado</p>
+          <h1 id="title">Precio Pizarra</h1>
+        </div>
+        <p class="helper-text">Reporte diario de precios de granos desde las fuentes configuradas.</p>
+
+        <div class="market-actions">
+          <button id="refresh-button" type="button">Actualizar</button>
+          <button id="notify-button" class="secondary-button" type="button">Activar notificaciones</button>
+        </div>
+
+        <div id="market-status" class="status" role="status">Cargando reporte...</div>
+        <section id="market-report" class="market-report" aria-live="polite"></section>
+      </section>
+      <nav class="bottom-nav" aria-label="Navegacion principal">
+        <a href="/">Cargar</a>
+        <a href="/historial.html">Historial</a>
+        <a class="active" href="/pizarra.html">Pizarra</a>
+      </nav>
+    </main>
+    <script src="/pizarra.js"></script>
+  </body>
+</html>
