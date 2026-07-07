@@ -80,7 +80,7 @@ dd { margin: 3px 0 0; font-size: 14px; }
   .expense-panel { padding: 28px; }
   .bottom-nav { left: 50%; right: auto; width: min(520px, calc(100% - 32px)); transform: translateX(-50%); }
   dl { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .history-controls { grid-template-columns: 1.2fr 1fr 1fr 1fr; align-items: end; }
+  .history-controls { grid-template-columns: 1.2fr 1fr 0.8fr 1fr 1fr; align-items: end; }
   .history-summary { grid-column: 1 / -1; }
 }
 @media (max-width: 680px) {
