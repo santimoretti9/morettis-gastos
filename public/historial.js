@@ -3,6 +3,7 @@ const statusEl = document.querySelector('#history-status');
 const historySummaryEl = document.querySelector('#history-summary');
 const historySearchEl = document.querySelector('#history-search');
 const historyPersonEl = document.querySelector('#history-person');
+const historyYearEl = document.querySelector('#history-year');
 const historyMonthEl = document.querySelector('#history-month');
 const historyOrderEl = document.querySelector('#history-order');
 const receiptsListEl = document.querySelector('#receipts-list');
@@ -17,7 +18,7 @@ let historyItems = [];
 tabButtons.forEach((button) => {
   button.addEventListener('click', () => activateTab(button.dataset.tab));
 });
-[historySearchEl, historyPersonEl, historyMonthEl, historyOrderEl].forEach((control) => control.addEventListener('input', renderHistory));
+[historySearchEl, historyPersonEl, historyYearEl, historyMonthEl, historyOrderEl].forEach((control) => control.addEventListener('input', renderHistory));
 
 loadHistory();
 loadReceipts();
@@ -43,19 +44,23 @@ async function loadHistory() {
 
 function fillHistoryFilters(history) {
   const people = [...new Set(history.map((item) => item.persona).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  const years = [...new Set(history.map((item) => yearFromDate(item.fechaRecibido)).filter(Boolean))].sort((a, b) => b - a);
   const months = [...new Set(history.map((item) => item.mesDestino).filter(Boolean))];
   historyPersonEl.innerHTML = '<option value="">Todas</option>' + people.map((person) => option(person, person)).join('');
+  historyYearEl.innerHTML = '<option value="">Todos</option>' + years.map((year) => option(year, year)).join('');
   historyMonthEl.innerHTML = '<option value="">Todos</option>' + months.map((month) => option(month, month)).join('');
 }
 
 function renderHistory() {
   const query = normalizeText(historySearchEl.value);
   const person = historyPersonEl.value;
+  const year = historyYearEl.value;
   const month = historyMonthEl.value;
   const order = historyOrderEl.value;
   let items = historyItems.filter((item) => {
     const searchable = normalizeText([item.concepto, item.categoria, item.persona, item.mesDestino, item.observaciones, item.mensaje].join(' '));
-    return (!person || item.persona === person) && (!month || item.mesDestino === month) && (!query || searchable.includes(query));
+    const loadedYear = yearFromDate(item.fechaRecibido);
+    return (!person || item.persona === person) && (!year || loadedYear === year) && (!month || item.mesDestino === month) && (!query || searchable.includes(query));
   });
   items = sortItems(items, order);
   updateHistorySummary(items);
@@ -142,6 +147,11 @@ function normalizeText(value) {
 function dateValue(value) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+function yearFromDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : String(date.getFullYear());
 }
 
 function formatAmount(value) {
