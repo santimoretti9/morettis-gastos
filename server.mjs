@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { createSign } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
+import webPush from 'web-push';
 
 const ROOT_DIR = typeof process === 'undefined' ? nodeRepl.cwd : process.cwd();
 const PORT = Number((typeof process === 'undefined' ? undefined : process.env.PORT) || 4333);
@@ -9,6 +10,7 @@ const PUBLIC_DIR = join(ROOT_DIR, 'public');
 const SHEET_NAME = 'Mensajes Gastos';
 const MAIN_SHEET_NAME = 'Cash-25 Morettis (2)';
 const RECEIPTS_SHEET_NAME = 'Comprobantes';
+const PUSH_SHEET_NAME = 'Push Suscripciones';
 const RECEIPT_CHUNK_SIZE = 45000;
 const LOADED_CELL_BACKGROUND = { red: 238 / 255, green: 236 / 255, blue: 225 / 255 };
 const BOARD_PRICE_SOURCES = [
@@ -16,6 +18,17 @@ const BOARD_PRICE_SOURCES = [
   { id: 'matba', name: 'Matba Rofex / FyO', url: 'https://matbarofex.primary.ventures/fyo/futurosagropecuarios' },
   { id: 'acabase', name: 'ACA Base', url: 'https://www.acabase.com.ar/' },
 ];
+const LAST_KNOWN_BOARD_PRICE = {
+  dateLabel: '07/07/2026',
+  notes: 'Ultima pizarra disponible guardada como respaldo. Se reemplaza automaticamente cuando BCR publica y responde con datos nuevos.',
+  products: [
+    { product: 'Trigo', ars: '$292.000,00', usd: 'US$ 196,90', source: 'BCR' },
+    { product: 'Maiz', ars: '$269.900,00', usd: 'US$ 182,00', source: 'BCR' },
+    { product: 'Girasol', ars: 'S/C (E) $667.350,00', usd: 'US$ (E) 450,00', source: 'BCR' },
+    { product: 'Soja', ars: '$480.500,00', usd: 'US$ 324,01', source: 'BCR' },
+    { product: 'Sorgo', ars: '$274.000,00', usd: 'US$ 184,76', source: 'BCR' },
+  ],
+};
 const APPLE_TOUCH_ICON_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAAEDUlEQVR4nO3SS3IUMRBFUXbBvtgG+x/DiAEf29iWKjNfHkWcabf06n75+v3bD0jxpfoCcJKgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImyqig/3Wq75Ro8s4jgv6fU33HBAk7tw76I6f6zhMl7SxoonZuG/RnTvXdJ0nbOTLormN3k7hxy6BPnep3dJa6cXTQHQfvIHlfQS+UvG980B1Ht+09K4LuOLxd71gTdMfxbXreqqA7fgB7nrUu6I4fwZbnCDrcti1XBt3xQ9hR0HEfw4aCjvsg9hN03EexnaCjPortBB33Yewm6LiPYzNBx30gewk67iPZStCfPtUb2EnQR0/1BnYS9PFTvYONBH38VG9hH0EfP9V72EbQx0/1JnYR9NFTvYldBH382OTvU92KoD957PH7qW5lTdA3Q5i2xUtvOPU7nUQHPT3q23c/+VtdxAc9Neon7nz69zoQ9KH/6LjBW3c+/XsdrAh6WtRP3fXGb1ZbE/SUqJ+8463fFfSDQ986Xd79nrvd/G1BPzj0rVP95vfe6fbvC/rBoW+c6je/9z5P/IegBwf9P//b6S5P/IegHxz61pkQs6ADg04I6qP/LejQoKvCqvjP6p0F/eDQt071f3XbWdAPDX3rVP9Xt50F/eDQt07HmAW9IOjbwd387Wk7C/rBoSed6ndWtyLooKg7vLG6FUGHRN3lfdWtCFrQ7XYW9INDdzyd3lbdiqCHR93tXdWtCHpw1B3fVN2KoIdG3fU91a0IWtDtdxb0g0NXnM5vqW5F0E3ul/KO6lYE3eiOCW+obkXQze45/f7VrQi64V0n3726FUE3vOvku1e3Iuim95167+pWBO3Oo+/8FkE3ufe0+1be+zWCbnD3SXftcveXCLrB3SfdtcvdXyLowjdMuGP3N/xJ0AVvqb5T4s6/CHqxxJ0FvVjizoJeLHFnQS+WuLOgF0vcWdCLJe4s6MUSdxb0Yok7C3qxxJ0FvVjizoJeLHFnQS+WuLOgF0vcWdCLJe4s6MUSdxb0Yok7C3qxxJ0FvVjizoJeLHHnlkF/duzqu0+StrOgl0vbuW3QHx27+s4TJe0saKJ2bh30ewavvmOChJ1HBP3a4NV3SjR551FBw1sETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UX4CRHb9zg8IOwEAAAAASUVORK5CYII=';
 const FAVICON_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAeklEQVR4nO3VMQ6AIAyFYW7hvbyG9591MmEQ258WkeSRdKKv+UIHynbs58wqAgggwK8B9ekZ7sm7ARThza4F8CJIDgMsBM10AVoDaT8CWHt9uksHvA0lvWkA62WGAMiuhwFaCJIPAzLuw4C7J5Jf5zMSYArgixJAAAEuotyqa3EwLzIAAAAASUVORK5CYII=';
 
@@ -94,6 +107,13 @@ const serviceAccountJson = env.GOOGLE_SERVICE_ACCOUNT_JSON;
 const spreadsheetId = env.GOOGLE_SHEET_ID;
 const accessCode = env.APP_ACCESS_CODE || '';
 const accessUsers = parseAccessUsers(env.APP_ACCESS_USERS || '');
+const vapidPublicKey = env.VAPID_PUBLIC_KEY || '';
+const vapidPrivateKey = env.VAPID_PRIVATE_KEY || '';
+const vapidSubject = env.VAPID_SUBJECT || 'mailto:notificaciones@morettis.local';
+
+if (vapidPublicKey && vapidPrivateKey) {
+  webPush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+}
 
 if ((!credentialsPath && !serviceAccountJson) || !spreadsheetId) { console.error('Faltan credenciales de Google o GOOGLE_SHEET_ID'); throw new Error('Configuracion incompleta'); }
 
@@ -108,10 +128,13 @@ createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/historial') return sendJson(res, 200, await listHistory());
     if (req.method === 'GET' && url.pathname === '/api/historial-comprobantes') return sendJson(res, 200, await listReceiptHistory());
     if (req.method === 'GET' && url.pathname === '/api/precio-pizarra') return sendJson(res, 200, await getBoardPriceReport());
+    if (req.method === 'GET' && url.pathname === '/api/push-public-key') return sendJson(res, 200, { publicKey: vapidPublicKey, enabled: Boolean(vapidPublicKey && vapidPrivateKey) });
     if (req.method === 'GET' && url.pathname === '/api/comprobantes/archivo') return sendReceiptFile(res, url.searchParams.get('id'));
     if (req.method === 'POST' && url.pathname === '/api/aprobar') return sendJson(res, 200, await approveExpense(await readJson(req)));
     if (req.method === 'POST' && url.pathname === '/api/gastos') return sendJson(res, 201, await createExpense(await readJson(req)));
     if (req.method === 'POST' && url.pathname === '/api/comprobantes') return sendJson(res, 201, await createReceipt(await readJson(req))); 
+    if (req.method === 'POST' && url.pathname === '/api/push-subscriptions') return sendJson(res, 201, await savePushSubscription(await readJson(req)));
+    if (req.method === 'POST' && url.pathname === '/api/push-test') return sendJson(res, 200, await sendBoardPricePush({ force: true }));
     if (req.method === 'GET' && url.pathname === '/api/config') return sendJson(res, 200, { accessCodeRequired: Boolean(accessCode || accessUsers.length), userCodesEnabled: Boolean(accessUsers.length) });
     if (req.method === 'GET') return serveStatic(res, url.pathname);
     sendJson(res, 404, { error: 'No encontrado' });
@@ -121,19 +144,24 @@ createServer(async (req, res) => {
   }
 }).listen(PORT, () => console.log('Mini web lista en http://localhost:' + PORT));
 
+startDailyPushSchedule();
+
 async function getBoardPriceReport() {
   const generatedAt = new Date().toISOString();
   const sources = await Promise.all(BOARD_PRICE_SOURCES.map(loadBoardPriceSource));
   const bcr = sources.find((source) => source.id === 'bcr');
-  const products = bcr?.products || [];
+  const bcrProducts = bcr?.products || [];
+  const products = bcrProducts.length ? bcrProducts : LAST_KNOWN_BOARD_PRICE.products;
+  const dateLabel = bcrProducts.length ? (bcr?.dateLabel || formatReportDate(generatedAt)) : LAST_KNOWN_BOARD_PRICE.dateLabel;
   const availableSources = sources.filter((source) => source.status === 'ok').length;
+  const reportSources = bcrProducts.length ? sources : sources.map((source) => source.id === 'bcr' ? { ...source, status: 'partial', notes: LAST_KNOWN_BOARD_PRICE.notes } : source);
   return {
     generatedAt,
     title: 'Precio Pizarra',
-    dateLabel: bcr?.dateLabel || formatReportDate(generatedAt),
+    dateLabel,
     products,
-    summary: buildBoardPriceSummary(products, sources),
-    sources,
+    summary: buildBoardPriceSummary(products, reportSources),
+    sources: reportSources,
     status: products.length ? 'ok' : 'partial',
     sourceCount: availableSources,
   };
@@ -225,6 +253,114 @@ function buildBoardPriceSummary(products, sources) {
   const names = products.map((item) => item.product).join(', ');
   const partialSources = sources.filter((source) => source.status !== 'ok').map((source) => source.name);
   return 'Lectura automatica disponible para ' + names + '. ' + (partialSources.length ? 'Fuentes para control manual: ' + partialSources.join(', ') + '.' : 'Todas las fuentes respondieron correctamente.');
+}
+
+async function savePushSubscription(body) {
+  if (!vapidPublicKey || !vapidPrivateKey) throw validationError('Faltan claves push en el servidor');
+  if (!body?.subscription?.endpoint) throw validationError('Falta la suscripcion del navegador');
+  await ensurePushSheet();
+  const rows = await getValues("'" + PUSH_SHEET_NAME + "'!A2:E");
+  const endpoint = String(body.subscription.endpoint);
+  const exists = rows.some((row) => row[1] === endpoint);
+  if (!exists) {
+    await appendValues("'" + PUSH_SHEET_NAME + "'!A1:E", [[
+      new Date().toISOString(),
+      endpoint,
+      JSON.stringify(body.subscription),
+      String(body.userAgent || ''),
+      'activa',
+    ]]);
+  }
+  return { ok: true, alreadyRegistered: exists };
+}
+
+async function sendBoardPricePush(options = {}) {
+  if (!vapidPublicKey || !vapidPrivateKey) return { ok: false, sent: 0, error: 'Push no configurado' };
+  if (!options.force && !shouldSendDailyPushNow()) return { ok: true, sent: 0, skipped: true };
+  const subscriptions = await listPushSubscriptions();
+  if (!subscriptions.length) return { ok: true, sent: 0, message: 'No hay celulares suscriptos' };
+  const report = await getBoardPriceReport();
+  const body = buildBoardPricePushBody(report);
+  const payload = JSON.stringify({
+    title: 'Precio Pizarra Morettis',
+    body,
+    url: '/pizarra.html',
+    tag: 'morettis-precio-pizarra-' + getArgentinaDateKey(),
+  });
+  let sent = 0;
+  let failed = 0;
+  await Promise.all(subscriptions.map(async (subscription) => {
+    try {
+      await webPush.sendNotification(subscription, payload);
+      sent += 1;
+    } catch (error) {
+      failed += 1;
+      console.error('No se pudo enviar push', error?.statusCode || '', error?.message || error);
+    }
+  }));
+  if (!options.force && sent) lastDailyPushDate = getArgentinaDateKey();
+  return { ok: true, sent, failed, dateLabel: report.dateLabel };
+}
+
+async function listPushSubscriptions() {
+  try {
+    const rows = await getValues("'" + PUSH_SHEET_NAME + "'!A2:E");
+    return rows
+      .filter((row) => row[4] !== 'inactiva')
+      .map((row) => {
+        try { return JSON.parse(row[2] || '{}'); } catch { return null; }
+      })
+      .filter((subscription) => subscription?.endpoint);
+  } catch {
+    return [];
+  }
+}
+
+function buildBoardPricePushBody(report) {
+  const products = report.products || [];
+  const soja = products.find((item) => normalizeMarketText(item.product) === 'soja');
+  const maiz = products.find((item) => normalizeMarketText(item.product) === 'maiz');
+  const trigo = products.find((item) => normalizeMarketText(item.product) === 'trigo');
+  const parts = [soja, maiz, trigo].filter(Boolean).map((item) => item.product + ': ' + (item.ars || '-'));
+  return 'Pizarra ' + (report.dateLabel || '') + (parts.length ? ' | ' + parts.join(' | ') : '');
+}
+
+let lastDailyPushDate = '';
+
+function startDailyPushSchedule() {
+  setInterval(() => {
+    sendBoardPricePush().catch((error) => console.error('Error en push diario', error));
+  }, 60 * 1000);
+}
+
+function shouldSendDailyPushNow() {
+  const now = getArgentinaDateTimeParts();
+  const today = getArgentinaDateKey(now);
+  return now.hour === 9 && now.minute === 0 && lastDailyPushDate !== today;
+}
+
+function getArgentinaDateTimeParts() {
+  const parts = new Intl.DateTimeFormat('es-AR', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date());
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return {
+    year: byType.year,
+    month: byType.month,
+    day: byType.day,
+    hour: Number(byType.hour),
+    minute: Number(byType.minute),
+  };
+}
+
+function getArgentinaDateKey(parts = getArgentinaDateTimeParts()) {
+  return parts.year + '-' + parts.month + '-' + parts.day;
 }
 
 function cleanPriceValue(value) {
@@ -509,6 +645,17 @@ async function ensureReceiptsSheet() {
     await batchUpdate({ requests: [{ addSheet: { properties: { title: RECEIPTS_SHEET_NAME } } }] });
   }
   await updateValues("'" + RECEIPTS_SHEET_NAME + "'!A1:J1", [header]);
+}
+
+async function ensurePushSheet() {
+  const header = ['fecha', 'endpoint', 'subscription_json', 'user_agent', 'estado'];
+  try {
+    const rows = await getValues("'" + PUSH_SHEET_NAME + "'!A1:E1");
+    if (rows.length) return;
+  } catch (error) {
+    await batchUpdate({ requests: [{ addSheet: { properties: { title: PUSH_SHEET_NAME } } }] });
+  }
+  await updateValues("'" + PUSH_SHEET_NAME + "'!A1:E1", [header]);
 }
 
 async function paintLoadedCell(sheetName, columnLetter, rowNumber) {
