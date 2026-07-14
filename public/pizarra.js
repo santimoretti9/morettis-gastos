@@ -73,10 +73,44 @@ async function enableNotifications() {
     statusEl.textContent = 'Este navegador no permite notificaciones.';
     return;
   }
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    statusEl.className = 'status error';
+    statusEl.textContent = 'Este navegador no permite push automatico. En iPhone, instala la web en inicio y abrila desde el icono.';
+    return;
+  }
   const permission = await Notification.requestPermission();
-  updateNotificationButton();
-  statusEl.className = permission === 'granted' ? 'status ok' : 'status error';
-  statusEl.textContent = permission === 'granted' ? 'Notificaciones activadas para Precio Pizarra.' : 'No se activaron las notificaciones.';
+  if (permission !== 'granted') {
+    updateNotificationButton();
+    statusEl.className = 'status error';
+    statusEl.textContent = 'No se activaron las notificaciones.';
+    return;
+  }
+  try {
+    statusEl.className = 'status';
+    statusEl.textContent = 'Registrando este celular...';
+    const keyResponse = await fetch('/api/push-public-key');
+    const keyData = await keyResponse.json();
+    if (!keyData.enabled || !keyData.publicKey) throw new Error('Las notificaciones push no estan configuradas en el servidor.');
+    const registration = await navigator.serviceWorker.register('/sw.js');
+    const existing = await registration.pushManager.getSubscription();
+    const subscription = existing || await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(keyData.publicKey),
+    });
+    const response = await fetch('/api/push-subscriptions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ subscription, userAgent: navigator.userAgent }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'No se pudo guardar este celular');
+    updateNotificationButton();
+    statusEl.className = 'status ok';
+    statusEl.textContent = 'Listo: este celular queda suscripto para recibir Precio Pizarra a las 9 AM.';
+  } catch (error) {
+    statusEl.className = 'status error';
+    statusEl.textContent = error.message;
+  }
 }
 
 function updateNotificationButton() {
@@ -105,4 +139,11 @@ function escapeHtml(value) {
 
 function escapeAttribute(value) {
   return escapeHtml(value).replace(/'/g, '&#39;');
+}
+
+function urlBase64ToUint8Array(value) {
+  const padding = '='.repeat((4 - value.length % 4) % 4);
+  const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = window.atob(base64);
+  return Uint8Array.from([...raw].map((char) => char.charCodeAt(0)));
 }
