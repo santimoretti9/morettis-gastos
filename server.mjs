@@ -1,4 +1,4 @@
-import { createServer } from 'node:http';
+﻿import { createServer } from 'node:http';
 import { createSign } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
@@ -11,8 +11,8 @@ const SHEET_NAME = 'Mensajes Gastos';
 const MAIN_SHEET_NAME = 'Cash-25 Morettis (2)';
 const RECEIPTS_SHEET_NAME = 'Comprobantes';
 const PUSH_SHEET_NAME = 'Push Suscripciones';
+const PUSH_SENDS_SHEET_NAME = 'Push Envios';
 const RECEIPT_CHUNK_SIZE = 45000;
-const LOADED_CELL_BACKGROUND = { red: 238 / 255, green: 236 / 255, blue: 225 / 255 };
 const BOARD_PRICE_SOURCES = [
   { id: 'bcr', name: 'BCR - Camara Arbitral de Cereales', url: 'https://www.cac.bcr.com.ar/es/precios-de-pizarra' },
   { id: 'matba', name: 'Matba Rofex / FyO', url: 'https://matbarofex.primary.ventures/fyo/futurosagropecuarios' },
@@ -55,7 +55,7 @@ const CONCEPTS = [
   { category: 'Ingresos', concept: 'Devolucion IVA', row: 10, type: 'INGRESOS' },
   { category: 'Ingresos', concept: 'Intereses Fondo Pionero', row: 11, type: 'INGRESOS' },
   { category: 'Sueldos', concept: 'GR', row: 16, type: 'EGRESOS' },
-  { category: 'Sueldos', concept: '(VEP) Y (UATRE)', row: 17, type: 'EGRESOS' },
+  { category: 'Sueldos', concept: 'Ap. y Contr', row: 17, type: 'EGRESOS' },
   { category: 'Sueldos', concept: 'Guada', row: 18, type: 'EGRESOS' },
   { category: 'Sueldos', concept: 'Santi', row: 19, type: 'EGRESOS' },
   { category: 'Impuestos', concept: 'I. Gcias - Bs Pers. (anticip)', row: 23, type: 'EGRESOS' },
@@ -135,6 +135,7 @@ createServer(async (req, res) => {
     if (req.method === 'POST' && url.pathname === '/api/comprobantes') return sendJson(res, 201, await createReceipt(await readJson(req))); 
     if (req.method === 'POST' && url.pathname === '/api/push-subscriptions') return sendJson(res, 201, await savePushSubscription(await readJson(req)));
     if (req.method === 'POST' && url.pathname === '/api/push-test') return sendJson(res, 200, await sendBoardPricePush({ force: true }));
+    if (req.method === 'POST' && url.pathname === '/api/push-diario') return sendJson(res, 200, await sendBoardPricePush({ daily: true }));
     if (req.method === 'GET' && url.pathname === '/api/config') return sendJson(res, 200, { accessCodeRequired: Boolean(accessCode || accessUsers.length), userCodesEnabled: Boolean(accessUsers.length) });
     if (req.method === 'GET') return serveStatic(res, url.pathname);
     sendJson(res, 404, { error: 'No encontrado' });
@@ -276,7 +277,13 @@ async function savePushSubscription(body) {
 
 async function sendBoardPricePush(options = {}) {
   if (!vapidPublicKey || !vapidPrivateKey) return { ok: false, sent: 0, error: 'Push no configurado' };
-  if (!options.force && !shouldSendDailyPushNow()) return { ok: true, sent: 0, skipped: true };
+  const dailyDateKey = getArgentinaDateKey();
+  if (options.daily) {
+    const now = getArgentinaDateTimeParts();
+    if (now.hour < 9) return { ok: true, sent: 0, skipped: true, reason: 'before_9am', dateKey: dailyDateKey };
+    if (await hasBoardPricePushBeenSent(dailyDateKey)) return { ok: true, sent: 0, skipped: true, reason: 'already_sent_today', dateKey: dailyDateKey };
+  }
+  if (!options.force && !options.daily && !shouldSendDailyPushNow()) return { ok: true, sent: 0, skipped: true };
   const subscriptions = await listPushSubscriptions();
   if (!subscriptions.length) return { ok: true, sent: 0, message: 'No hay celulares suscriptos' };
   const report = await getBoardPriceReport();
@@ -298,8 +305,11 @@ async function sendBoardPricePush(options = {}) {
       console.error('No se pudo enviar push', error?.statusCode || '', error?.message || error);
     }
   }));
-  if (!options.force && sent) lastDailyPushDate = getArgentinaDateKey();
-  return { ok: true, sent, failed, dateLabel: report.dateLabel };
+  if (sent) {
+    lastDailyPushDate = dailyDateKey;
+    if (options.daily || !options.force) await recordBoardPricePushSend(dailyDateKey, sent, failed, report.dateLabel);
+  }
+  return { ok: true, sent, failed, dateLabel: report.dateLabel, dateKey: dailyDateKey };
 }
 
 async function listPushSubscriptions() {
@@ -316,6 +326,32 @@ async function listPushSubscriptions() {
   }
 }
 
+async function hasBoardPricePushBeenSent(dateKey) {
+  if (lastDailyPushDate === dateKey) return true;
+  try {
+    await ensurePushSendsSheet();
+    const rows = await getValues("'" + PUSH_SENDS_SHEET_NAME + "'!A2:E");
+    const alreadySent = rows.some((row) => row[0] === dateKey && row[4] === 'enviado');
+    if (alreadySent) lastDailyPushDate = dateKey;
+    return alreadySent;
+  } catch (error) {
+    console.error('No se pudo revisar el historial de push diario', error?.message || error);
+    return false;
+  }
+}
+
+async function recordBoardPricePushSend(dateKey, sent, failed, dateLabel) {
+  await ensurePushSendsSheet();
+  await appendValues("'" + PUSH_SENDS_SHEET_NAME + "'!A1:F", [[
+    dateKey,
+    new Date().toISOString(),
+    sent,
+    failed,
+    'enviado',
+    dateLabel || '',
+  ]]);
+}
+
 function buildBoardPricePushBody(report) {
   const products = report.products || [];
   const soja = products.find((item) => normalizeMarketText(item.product) === 'soja');
@@ -329,7 +365,7 @@ let lastDailyPushDate = '';
 
 function startDailyPushSchedule() {
   setInterval(() => {
-    sendBoardPricePush().catch((error) => console.error('Error en push diario', error));
+    if (shouldSendDailyPushNow()) sendBoardPricePush({ daily: true }).catch((error) => console.error('Error en push diario', error));
   }, 60 * 1000);
 }
 
@@ -411,11 +447,10 @@ async function createExpense(body) {
   const targetRange = "'" + MAIN_SHEET_NAME + "'!" + month.column + concept.row;
   const currentRows = await getValues(targetRange, 'UNFORMATTED_VALUE');
   const previousValue = currentRows?.[0]?.[0] ?? '';
-  const shouldUseWebAccumulation = concept.concept === '(VEP) Y (UATRE)';
+  const shouldUseWebAccumulation = concept.concept === 'Ap. y Contr';
   const previousWebTotal = shouldUseWebAccumulation ? await getWebTotalForConceptMonth(concept.concept, month.column) : 0;
   const newValue = shouldUseWebAccumulation ? previousWebTotal + amount : amount;
   await updateValues(targetRange, [[newValue]]);
-  await paintLoadedCell(MAIN_SHEET_NAME, month.column, concept.row);
 
   const receiptDescription = String(body.descripcion_comprobante || '').trim() || concept.concept + ' - ' + month.label;
   const receiptResult = await saveReceiptFromBody(body, accessUser, amount, receiptDescription, false);
@@ -588,7 +623,6 @@ async function approveExpense(body) {
   const newValue = currentValue + expense.importe;
 
   await updateValues(targetRange, [[newValue]]);
-  await paintLoadedCell(MAIN_SHEET_NAME, expense.columnaDestino, expense.filaDestino);
   await updateValues("'" + SHEET_NAME + "'!P" + rowNumber + ':R' + rowNumber, [['cargado', 'Aprobado y cargado en ' + MAIN_SHEET_NAME + '!' + expense.columnaDestino + expense.filaDestino, new Date().toISOString()]]);
 
   return {
@@ -658,51 +692,15 @@ async function ensurePushSheet() {
   await updateValues("'" + PUSH_SHEET_NAME + "'!A1:E1", [header]);
 }
 
-async function paintLoadedCell(sheetName, columnLetter, rowNumber) {
-  const sheetId = await getSheetIdByTitle(sheetName);
-  const columnIndex = columnLetterToIndex(columnLetter);
-  const rowIndex = Number(rowNumber) - 1;
-  if (!Number.isInteger(sheetId) || columnIndex < 0 || rowIndex < 0) throw validationError('No se pudo identificar la celda para pintar');
-  await batchUpdate({
-    requests: [{
-      repeatCell: {
-        range: {
-          sheetId,
-          startRowIndex: rowIndex,
-          endRowIndex: rowIndex + 1,
-          startColumnIndex: columnIndex,
-          endColumnIndex: columnIndex + 1,
-        },
-        cell: { userEnteredFormat: { backgroundColor: LOADED_CELL_BACKGROUND } },
-        fields: 'userEnteredFormat.backgroundColor',
-      },
-    }],
-  });
-}
-
-async function getSheetIdByTitle(sheetName) {
-  if (!getSheetIdByTitle.cache) getSheetIdByTitle.cache = new Map();
-  if (getSheetIdByTitle.cache.has(sheetName)) return getSheetIdByTitle.cache.get(sheetName);
-  const metadata = await getSpreadsheetMetadata();
-  const sheet = metadata.sheets?.find((item) => item.properties?.title === sheetName);
-  if (!sheet) throw validationError('No encontre la hoja ' + sheetName);
-  const sheetId = sheet.properties.sheetId;
-  getSheetIdByTitle.cache.set(sheetName, sheetId);
-  return sheetId;
-}
-
-async function getSpreadsheetMetadata() {
-  const accessToken = await getAccessToken();
-  const url = new URL('https://sheets.googleapis.com/v4/spreadsheets/' + spreadsheetId);
-  url.searchParams.set('fields', 'sheets.properties(sheetId,title)');
-  const response = await fetch(url, { headers: { authorization: 'Bearer ' + accessToken } });
-  const data = await response.json();
-  if (!response.ok) throw new Error(JSON.stringify(data));
-  return data;
-}
-
-function columnLetterToIndex(columnLetter) {
-  return String(columnLetter || '').trim().toUpperCase().split('').reduce((index, letter) => index * 26 + letter.charCodeAt(0) - 64, 0) - 1;
+async function ensurePushSendsSheet() {
+  const header = ['fecha_argentina', 'fecha_envio', 'enviados', 'fallidos', 'estado', 'pizarra'];
+  try {
+    const rows = await getValues("'" + PUSH_SENDS_SHEET_NAME + "'!A1:F1");
+    if (rows.length) return;
+  } catch (error) {
+    await batchUpdate({ requests: [{ addSheet: { properties: { title: PUSH_SENDS_SHEET_NAME } } }] });
+  }
+  await updateValues("'" + PUSH_SENDS_SHEET_NAME + "'!A1:F1", [header]);
 }
 
 async function batchUpdate(payload) {
