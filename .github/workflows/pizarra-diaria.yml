@@ -2,8 +2,8 @@ name: Precio Pizarra Diario
 
 on:
   schedule:
-    # 12:00 UTC = 09:00 Argentina
-    - cron: '0 12 * * *'
+    # Reintentos durante el dia: el servidor envia solo una vez despues de las 09:00 Argentina.
+    - cron: '*/15 9-16 * * *'
   workflow_dispatch:
 
 jobs:
@@ -15,4 +15,4 @@ jobs:
           curl --fail --show-error --silent \
             --request POST \
             --max-time 120 \
-            https://morettis-gastos.onrender.com/api/push-test
+            https://morettis-gastos.onrender.com/api/push-diario
