@@ -93,7 +93,8 @@ async function enableNotifications() {
     if (!keyData.enabled || !keyData.publicKey) throw new Error('Las notificaciones push no estan configuradas en el servidor.');
     const registration = await navigator.serviceWorker.register('/sw.js');
     const existing = await registration.pushManager.getSubscription();
-    const subscription = existing || await registration.pushManager.subscribe({
+    if (existing) await existing.unsubscribe();
+    const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(keyData.publicKey),
     });
@@ -125,12 +126,7 @@ function updateNotificationButton() {
 function notifyIfNewReport(report, options) {
   const reportKey = String(report.dateLabel || report.generatedAt || '').trim();
   if (!reportKey) return;
-  const previous = localStorage.getItem(LAST_REPORT_KEY);
   localStorage.setItem(LAST_REPORT_KEY, reportKey);
-  if (!previous || previous === reportKey || options.manual) return;
-  if ('Notification' in window && Notification.permission === 'granted') {
-    new Notification('Nuevo Precio Pizarra', { body: 'Ya esta disponible el reporte ' + reportKey + '.', tag: 'morettis-precio-pizarra' });
-  }
 }
 
 function escapeHtml(value) {
